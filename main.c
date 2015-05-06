@@ -30,9 +30,9 @@
 static void gpio_init(void)
 {
     nrf_gpio_cfg_input(BUTTON_0, BUTTON_PULL);
-    nrf_gpio_cfg_output(LED_0);
+    nrf_gpio_cfg_output(22);
 
-    nrf_gpio_pin_write(LED_0, BUTTON_0);
+    //nrf_gpio_pin_write(22, BUTTON_0); //처음에 led를 on으로 시작하는 경우
 
     // Enable interrupt:
     NVIC_EnableIRQ(GPIOTE_IRQn);
@@ -53,9 +53,9 @@ void GPIOTE_IRQHandler(void)
     {
         NRF_GPIOTE->EVENTS_IN[0] = 0;
     }
-    nrf_gpio_pin_toggle(8);
-		nrf_gpio_pin_toggle(22);
-		nrf_gpio_pin_toggle(LED_0);
+    //nrf_gpio_pin_toggle(8);
+    nrf_gpio_pin_toggle(22);
+    //nrf_gpio_pin_toggle(18);
 }
 
 
