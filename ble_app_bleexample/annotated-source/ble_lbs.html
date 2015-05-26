@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="content-type" content="text/html;charset=utf-8">
+  <title>ble_lbs.c</title>
+  <link rel="stylesheet" href="pycco.css">
+</head>
+<body>
+<div id="background"></div>
+<div id='container'>
+  <div class='section'>
+    <div class='docs'><h1>ble_lbs.c</h1></div>
+  </div>
+  <div class='clearall'>
+  <div class='section' id='section-0'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-0'>#</a>
+      </div>
+      
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre><span class="cm">/* Copyright (c) 2013 Nordic Semiconductor. All Rights Reserved.</span>
+<span class="cm"> *</span>
+<span class="cm"> * Use of this source code is governed by a BSD-style license that can be</span>
+<span class="cm"> * found in the license.txt file.</span>
+<span class="cm"> */</span>
+
+<span class="cp">#include &quot;ble_lbs.h&quot;</span>
+<span class="cp">#include &lt;string.h&gt;</span>
+<span class="cp">#include &quot;nordic_common.h&quot;</span>
+<span class="cp">#include &quot;ble_srv_common.h&quot;</span>
+<span class="cp">#include &quot;app_util.h&quot;</span>
+
+
+<span class="cm">/**@brief Function for handling the Connect event.</span>
+<span class="cm"> *</span>
+<span class="cm"> * @param[in]   p_lbs       LED Button Service structure.</span>
+<span class="cm"> * @param[in]   p_ble_evt   Event received from the BLE stack.</span>
+<span class="cm"> */</span>
+<span class="k">static</span> <span class="kt">void</span> <span class="nf">on_connect</span><span class="p">(</span><span class="kt">ble_lbs_t</span> <span class="o">*</span> <span class="n">p_lbs</span><span class="p">,</span> <span class="kt">ble_evt_t</span> <span class="o">*</span> <span class="n">p_ble_evt</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">p_lbs</span><span class="o">-&gt;</span><span class="n">conn_handle</span> <span class="o">=</span> <span class="n">p_ble_evt</span><span class="o">-&gt;</span><span class="n">evt</span><span class="p">.</span><span class="n">gap_evt</span><span class="p">.</span><span class="n">conn_handle</span><span class="p">;</span>
+<span class="p">}</span>
+
+
+<span class="cm">/**@brief Function for handling the Disconnect event.</span>
+<span class="cm"> *</span>
+<span class="cm"> * @param[in]   p_lbs       LED Button Service structure.</span>
+<span class="cm"> * @param[in]   p_ble_evt   Event received from the BLE stack.</span>
+<span class="cm"> */</span>
+<span class="k">static</span> <span class="kt">void</span> <span class="nf">on_disconnect</span><span class="p">(</span><span class="kt">ble_lbs_t</span> <span class="o">*</span> <span class="n">p_lbs</span><span class="p">,</span> <span class="kt">ble_evt_t</span> <span class="o">*</span> <span class="n">p_ble_evt</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">UNUSED_PARAMETER</span><span class="p">(</span><span class="n">p_ble_evt</span><span class="p">);</span>
+    <span class="n">p_lbs</span><span class="o">-&gt;</span><span class="n">conn_handle</span> <span class="o">=</span> <span class="n">BLE_CONN_HANDLE_INVALID</span><span class="p">;</span>
+<span class="p">}</span>
+
+
+<span class="cm">/**@brief Function for handling the Write event.</span>
+<span class="cm"> *</span>
+<span class="cm"> * @param[in]   p_lbs       LED Button Service structure.</span>
+<span class="cm"> * @param[in]   p_ble_evt   Event received from the BLE stack.</span>
+<span class="cm"> */</span>
+<span class="k">static</span> <span class="kt">void</span> <span class="nf">on_write</span><span class="p">(</span><span class="kt">ble_lbs_t</span> <span class="o">*</span> <span class="n">p_lbs</span><span class="p">,</span> <span class="kt">ble_evt_t</span> <span class="o">*</span> <span class="n">p_ble_evt</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="kt">ble_gatts_evt_write_t</span> <span class="o">*</span> <span class="n">p_evt_write</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">p_ble_evt</span><span class="o">-&gt;</span><span class="n">evt</span><span class="p">.</span><span class="n">gatts_evt</span><span class="p">.</span><span class="n">params</span><span class="p">.</span><span class="n">write</span><span class="p">;</span>
+    
+    <span class="k">if</span> <span class="p">((</span><span class="n">p_evt_write</span><span class="o">-&gt;</span><span class="n">handle</span> <span class="o">==</span> <span class="n">p_lbs</span><span class="o">-&gt;</span><span class="n">led_char_handles</span><span class="p">.</span><span class="n">value_handle</span><span class="p">)</span> <span class="o">&amp;&amp;</span>
+        <span class="p">(</span><span class="n">p_evt_write</span><span class="o">-&gt;</span><span class="n">len</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&amp;&amp;</span>
+        <span class="p">(</span><span class="n">p_lbs</span><span class="o">-&gt;</span><span class="n">led_write_handler</span> <span class="o">!=</span> <span class="nb">NULL</span><span class="p">))</span>
+    <span class="p">{</span>
+        <span class="n">p_lbs</span><span class="o">-&gt;</span><span class="n">led_write_handler</span><span class="p">(</span><span class="n">p_lbs</span><span class="p">,</span> <span class="n">p_evt_write</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+
+<span class="kt">void</span> <span class="nf">ble_lbs_on_ble_evt</span><span class="p">(</span><span class="kt">ble_lbs_t</span> <span class="o">*</span> <span class="n">p_lbs</span><span class="p">,</span> <span class="kt">ble_evt_t</span> <span class="o">*</span> <span class="n">p_ble_evt</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="k">switch</span> <span class="p">(</span><span class="n">p_ble_evt</span><span class="o">-&gt;</span><span class="n">header</span><span class="p">.</span><span class="n">evt_id</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">case</span> <span class="nl">BLE_GAP_EVT_CONNECTED</span><span class="p">:</span>
+            <span class="n">on_connect</span><span class="p">(</span><span class="n">p_lbs</span><span class="p">,</span> <span class="n">p_ble_evt</span><span class="p">);</span>
+            <span class="k">break</span><span class="p">;</span>
+            
+        <span class="k">case</span> <span class="nl">BLE_GAP_EVT_DISCONNECTED</span><span class="p">:</span>
+            <span class="n">on_disconnect</span><span class="p">(</span><span class="n">p_lbs</span><span class="p">,</span> <span class="n">p_ble_evt</span><span class="p">);</span>
+            <span class="k">break</span><span class="p">;</span>
+            
+        <span class="k">case</span> <span class="nl">BLE_GATTS_EVT_WRITE</span><span class="p">:</span>
+            <span class="n">on_write</span><span class="p">(</span><span class="n">p_lbs</span><span class="p">,</span> <span class="n">p_ble_evt</span><span class="p">);</span>
+            <span class="k">break</span><span class="p">;</span>
+            
+        <span class="k">default</span><span class="o">:</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-1'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-1'>#</a>
+      </div>
+      <p>No implementation needed.</p>
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre>            <span class="k">break</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+
+<span class="cm">/**@brief Function for adding the LED characteristic.</span>
+<span class="cm"> *</span>
+<span class="cm"> */</span>
+<span class="k">static</span> <span class="kt">uint32_t</span> <span class="nf">led_char_add</span><span class="p">(</span><span class="kt">ble_lbs_t</span> <span class="o">*</span> <span class="n">p_lbs</span><span class="p">,</span> <span class="k">const</span> <span class="kt">ble_lbs_init_t</span> <span class="o">*</span> <span class="n">p_lbs_init</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="kt">ble_gatts_char_md_t</span> <span class="n">char_md</span><span class="p">;</span>
+    <span class="kt">ble_gatts_attr_t</span>    <span class="n">attr_char_value</span><span class="p">;</span>
+    <span class="kt">ble_uuid_t</span>          <span class="n">ble_uuid</span><span class="p">;</span>
+    <span class="kt">ble_gatts_attr_md_t</span> <span class="n">attr_md</span><span class="p">;</span>
+
+    <span class="n">memset</span><span class="p">(</span><span class="o">&amp;</span><span class="n">char_md</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">char_md</span><span class="p">));</span>
+    
+    <span class="n">char_md</span><span class="p">.</span><span class="n">char_props</span><span class="p">.</span><span class="n">read</span>   <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+    <span class="n">char_md</span><span class="p">.</span><span class="n">char_props</span><span class="p">.</span><span class="n">write</span>  <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+    <span class="n">char_md</span><span class="p">.</span><span class="n">p_char_user_desc</span>  <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+    <span class="n">char_md</span><span class="p">.</span><span class="n">p_char_pf</span>         <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+    <span class="n">char_md</span><span class="p">.</span><span class="n">p_user_desc_md</span>    <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+    <span class="n">char_md</span><span class="p">.</span><span class="n">p_cccd_md</span>         <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+    <span class="n">char_md</span><span class="p">.</span><span class="n">p_sccd_md</span>         <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+    
+    <span class="n">ble_uuid</span><span class="p">.</span><span class="n">type</span> <span class="o">=</span> <span class="n">p_lbs</span><span class="o">-&gt;</span><span class="n">uuid_type</span><span class="p">;</span>
+    <span class="n">ble_uuid</span><span class="p">.</span><span class="n">uuid</span> <span class="o">=</span> <span class="n">LBS_UUID_LED_CHAR</span><span class="p">;</span>
+    
+    <span class="n">memset</span><span class="p">(</span><span class="o">&amp;</span><span class="n">attr_md</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">attr_md</span><span class="p">));</span>
+
+    <span class="n">BLE_GAP_CONN_SEC_MODE_SET_OPEN</span><span class="p">(</span><span class="o">&amp;</span><span class="n">attr_md</span><span class="p">.</span><span class="n">read_perm</span><span class="p">);</span>
+    <span class="n">BLE_GAP_CONN_SEC_MODE_SET_OPEN</span><span class="p">(</span><span class="o">&amp;</span><span class="n">attr_md</span><span class="p">.</span><span class="n">write_perm</span><span class="p">);</span>
+    <span class="n">attr_md</span><span class="p">.</span><span class="n">vloc</span>       <span class="o">=</span> <span class="n">BLE_GATTS_VLOC_STACK</span><span class="p">;</span>
+    <span class="n">attr_md</span><span class="p">.</span><span class="n">rd_auth</span>    <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="n">attr_md</span><span class="p">.</span><span class="n">wr_auth</span>    <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="n">attr_md</span><span class="p">.</span><span class="n">vlen</span>       <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    
+    <span class="n">memset</span><span class="p">(</span><span class="o">&amp;</span><span class="n">attr_char_value</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">attr_char_value</span><span class="p">));</span>
+
+    <span class="n">attr_char_value</span><span class="p">.</span><span class="n">p_uuid</span>       <span class="o">=</span> <span class="o">&amp;</span><span class="n">ble_uuid</span><span class="p">;</span>
+    <span class="n">attr_char_value</span><span class="p">.</span><span class="n">p_attr_md</span>    <span class="o">=</span> <span class="o">&amp;</span><span class="n">attr_md</span><span class="p">;</span>
+    <span class="n">attr_char_value</span><span class="p">.</span><span class="n">init_len</span>     <span class="o">=</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">uint8_t</span><span class="p">);</span>
+    <span class="n">attr_char_value</span><span class="p">.</span><span class="n">init_offs</span>    <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="n">attr_char_value</span><span class="p">.</span><span class="n">max_len</span>      <span class="o">=</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">uint8_t</span><span class="p">);</span>
+    <span class="n">attr_char_value</span><span class="p">.</span><span class="n">p_value</span>      <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+    
+    <span class="k">return</span> <span class="n">sd_ble_gatts_characteristic_add</span><span class="p">(</span><span class="n">p_lbs</span><span class="o">-&gt;</span><span class="n">service_handle</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">char_md</span><span class="p">,</span>
+                                               <span class="o">&amp;</span><span class="n">attr_char_value</span><span class="p">,</span>
+                                               <span class="o">&amp;</span><span class="n">p_lbs</span><span class="o">-&gt;</span><span class="n">led_char_handles</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="cm">/**@brief Function for adding the Button characteristic.</span>
+<span class="cm"> *</span>
+<span class="cm"> */</span>
+<span class="k">static</span> <span class="kt">uint32_t</span> <span class="nf">button_char_add</span><span class="p">(</span><span class="kt">ble_lbs_t</span> <span class="o">*</span> <span class="n">p_lbs</span><span class="p">,</span> <span class="k">const</span> <span class="kt">ble_lbs_init_t</span> <span class="o">*</span> <span class="n">p_lbs_init</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="kt">ble_gatts_char_md_t</span> <span class="n">char_md</span><span class="p">;</span>
+    <span class="kt">ble_gatts_attr_md_t</span> <span class="n">cccd_md</span><span class="p">;</span>
+    <span class="kt">ble_gatts_attr_t</span>    <span class="n">attr_char_value</span><span class="p">;</span>
+    <span class="kt">ble_uuid_t</span>          <span class="n">ble_uuid</span><span class="p">;</span>
+    <span class="kt">ble_gatts_attr_md_t</span> <span class="n">attr_md</span><span class="p">;</span>
+
+    <span class="n">memset</span><span class="p">(</span><span class="o">&amp;</span><span class="n">cccd_md</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">cccd_md</span><span class="p">));</span>
+
+    <span class="n">BLE_GAP_CONN_SEC_MODE_SET_OPEN</span><span class="p">(</span><span class="o">&amp;</span><span class="n">cccd_md</span><span class="p">.</span><span class="n">read_perm</span><span class="p">);</span>
+    <span class="n">BLE_GAP_CONN_SEC_MODE_SET_OPEN</span><span class="p">(</span><span class="o">&amp;</span><span class="n">cccd_md</span><span class="p">.</span><span class="n">write_perm</span><span class="p">);</span>
+    <span class="n">cccd_md</span><span class="p">.</span><span class="n">vloc</span> <span class="o">=</span> <span class="n">BLE_GATTS_VLOC_STACK</span><span class="p">;</span>
+    
+    <span class="n">memset</span><span class="p">(</span><span class="o">&amp;</span><span class="n">char_md</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">char_md</span><span class="p">));</span>
+    
+    <span class="n">char_md</span><span class="p">.</span><span class="n">char_props</span><span class="p">.</span><span class="n">read</span>   <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+    <span class="n">char_md</span><span class="p">.</span><span class="n">char_props</span><span class="p">.</span><span class="n">notify</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+    <span class="n">char_md</span><span class="p">.</span><span class="n">p_char_user_desc</span>  <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+    <span class="n">char_md</span><span class="p">.</span><span class="n">p_char_pf</span>         <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+    <span class="n">char_md</span><span class="p">.</span><span class="n">p_user_desc_md</span>    <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+    <span class="n">char_md</span><span class="p">.</span><span class="n">p_cccd_md</span>         <span class="o">=</span> <span class="o">&amp;</span><span class="n">cccd_md</span><span class="p">;</span>
+    <span class="n">char_md</span><span class="p">.</span><span class="n">p_sccd_md</span>         <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+    
+    <span class="n">ble_uuid</span><span class="p">.</span><span class="n">type</span> <span class="o">=</span> <span class="n">p_lbs</span><span class="o">-&gt;</span><span class="n">uuid_type</span><span class="p">;</span>
+    <span class="n">ble_uuid</span><span class="p">.</span><span class="n">uuid</span> <span class="o">=</span> <span class="n">LBS_UUID_BUTTON_CHAR</span><span class="p">;</span>
+    
+    <span class="n">memset</span><span class="p">(</span><span class="o">&amp;</span><span class="n">attr_md</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">attr_md</span><span class="p">));</span>
+
+    <span class="n">BLE_GAP_CONN_SEC_MODE_SET_OPEN</span><span class="p">(</span><span class="o">&amp;</span><span class="n">attr_md</span><span class="p">.</span><span class="n">read_perm</span><span class="p">);</span>
+    <span class="n">BLE_GAP_CONN_SEC_MODE_SET_NO_ACCESS</span><span class="p">(</span><span class="o">&amp;</span><span class="n">attr_md</span><span class="p">.</span><span class="n">write_perm</span><span class="p">);</span>
+    <span class="n">attr_md</span><span class="p">.</span><span class="n">vloc</span>       <span class="o">=</span> <span class="n">BLE_GATTS_VLOC_STACK</span><span class="p">;</span>
+    <span class="n">attr_md</span><span class="p">.</span><span class="n">rd_auth</span>    <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="n">attr_md</span><span class="p">.</span><span class="n">wr_auth</span>    <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="n">attr_md</span><span class="p">.</span><span class="n">vlen</span>       <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    
+    <span class="n">memset</span><span class="p">(</span><span class="o">&amp;</span><span class="n">attr_char_value</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">attr_char_value</span><span class="p">));</span>
+
+    <span class="n">attr_char_value</span><span class="p">.</span><span class="n">p_uuid</span>       <span class="o">=</span> <span class="o">&amp;</span><span class="n">ble_uuid</span><span class="p">;</span>
+    <span class="n">attr_char_value</span><span class="p">.</span><span class="n">p_attr_md</span>    <span class="o">=</span> <span class="o">&amp;</span><span class="n">attr_md</span><span class="p">;</span>
+    <span class="n">attr_char_value</span><span class="p">.</span><span class="n">init_len</span>     <span class="o">=</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">uint8_t</span><span class="p">);</span>
+    <span class="n">attr_char_value</span><span class="p">.</span><span class="n">init_offs</span>    <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="n">attr_char_value</span><span class="p">.</span><span class="n">max_len</span>      <span class="o">=</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">uint8_t</span><span class="p">);</span>
+    <span class="n">attr_char_value</span><span class="p">.</span><span class="n">p_value</span>      <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+    
+    <span class="k">return</span> <span class="n">sd_ble_gatts_characteristic_add</span><span class="p">(</span><span class="n">p_lbs</span><span class="o">-&gt;</span><span class="n">service_handle</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">char_md</span><span class="p">,</span>
+                                               <span class="o">&amp;</span><span class="n">attr_char_value</span><span class="p">,</span>
+                                               <span class="o">&amp;</span><span class="n">p_lbs</span><span class="o">-&gt;</span><span class="n">button_char_handles</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="kt">uint32_t</span> <span class="nf">ble_lbs_init</span><span class="p">(</span><span class="kt">ble_lbs_t</span> <span class="o">*</span> <span class="n">p_lbs</span><span class="p">,</span> <span class="k">const</span> <span class="kt">ble_lbs_init_t</span> <span class="o">*</span> <span class="n">p_lbs_init</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="kt">uint32_t</span>   <span class="n">err_code</span><span class="p">;</span>
+    <span class="kt">ble_uuid_t</span> <span class="n">ble_uuid</span><span class="p">;</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-2'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-2'>#</a>
+      </div>
+      <p>Initialize service structure</p>
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre>    <span class="n">p_lbs</span><span class="o">-&gt;</span><span class="n">conn_handle</span>       <span class="o">=</span> <span class="n">BLE_CONN_HANDLE_INVALID</span><span class="p">;</span>
+    <span class="n">p_lbs</span><span class="o">-&gt;</span><span class="n">led_write_handler</span> <span class="o">=</span> <span class="n">p_lbs_init</span><span class="o">-&gt;</span><span class="n">led_write_handler</span><span class="p">;</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-3'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-3'>#</a>
+      </div>
+      <p>Add service</p>
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre>    <span class="kt">ble_uuid128_t</span> <span class="n">base_uuid</span> <span class="o">=</span> <span class="p">{</span><span class="n">LBS_UUID_BASE</span><span class="p">};</span>
+    <span class="n">err_code</span> <span class="o">=</span> <span class="n">sd_ble_uuid_vs_add</span><span class="p">(</span><span class="o">&amp;</span><span class="n">base_uuid</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">p_lbs</span><span class="o">-&gt;</span><span class="n">uuid_type</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">err_code</span> <span class="o">!=</span> <span class="n">NRF_SUCCESS</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="n">err_code</span><span class="p">;</span>
+    <span class="p">}</span>
+    
+    <span class="n">ble_uuid</span><span class="p">.</span><span class="n">type</span> <span class="o">=</span> <span class="n">p_lbs</span><span class="o">-&gt;</span><span class="n">uuid_type</span><span class="p">;</span>
+    <span class="n">ble_uuid</span><span class="p">.</span><span class="n">uuid</span> <span class="o">=</span> <span class="n">LBS_UUID_SERVICE</span><span class="p">;</span>
+
+    <span class="n">err_code</span> <span class="o">=</span> <span class="n">sd_ble_gatts_service_add</span><span class="p">(</span><span class="n">BLE_GATTS_SRVC_TYPE_PRIMARY</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">ble_uuid</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">p_lbs</span><span class="o">-&gt;</span><span class="n">service_handle</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">err_code</span> <span class="o">!=</span> <span class="n">NRF_SUCCESS</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="n">err_code</span><span class="p">;</span>
+    <span class="p">}</span>
+    
+    <span class="n">err_code</span> <span class="o">=</span> <span class="n">button_char_add</span><span class="p">(</span><span class="n">p_lbs</span><span class="p">,</span> <span class="n">p_lbs_init</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">err_code</span> <span class="o">!=</span> <span class="n">NRF_SUCCESS</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="n">err_code</span><span class="p">;</span>
+    <span class="p">}</span>
+    
+    <span class="n">err_code</span> <span class="o">=</span> <span class="n">led_char_add</span><span class="p">(</span><span class="n">p_lbs</span><span class="p">,</span> <span class="n">p_lbs_init</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">err_code</span> <span class="o">!=</span> <span class="n">NRF_SUCCESS</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="n">err_code</span><span class="p">;</span>
+    <span class="p">}</span>
+    
+    <span class="k">return</span> <span class="n">NRF_SUCCESS</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="kt">uint32_t</span> <span class="nf">ble_lbs_on_button_change</span><span class="p">(</span><span class="kt">ble_lbs_t</span> <span class="o">*</span> <span class="n">p_lbs</span><span class="p">,</span> <span class="kt">uint8_t</span> <span class="n">button_state</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="kt">ble_gatts_hvx_params_t</span> <span class="n">params</span><span class="p">;</span>
+    <span class="kt">uint16_t</span> <span class="n">len</span> <span class="o">=</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">button_state</span><span class="p">);</span>
+    
+    <span class="n">memset</span><span class="p">(</span><span class="o">&amp;</span><span class="n">params</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">params</span><span class="p">));</span>
+    <span class="n">params</span><span class="p">.</span><span class="n">type</span> <span class="o">=</span> <span class="n">BLE_GATT_HVX_NOTIFICATION</span><span class="p">;</span>
+    <span class="n">params</span><span class="p">.</span><span class="n">handle</span> <span class="o">=</span> <span class="n">p_lbs</span><span class="o">-&gt;</span><span class="n">button_char_handles</span><span class="p">.</span><span class="n">value_handle</span><span class="p">;</span>
+    <span class="n">params</span><span class="p">.</span><span class="n">p_data</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">button_state</span><span class="p">;</span>
+    <span class="n">params</span><span class="p">.</span><span class="n">p_len</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">len</span><span class="p">;</span>
+    
+    <span class="k">return</span> <span class="n">sd_ble_gatts_hvx</span><span class="p">(</span><span class="n">p_lbs</span><span class="o">-&gt;</span><span class="n">conn_handle</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">params</span><span class="p">);</span>
+<span class="p">}</span>
+
+</pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+</div>
+</body>
