@@ -482,17 +482,38 @@ Advertising 시작되면 ADVERTISING_LED_PIN_NO LED를 켜네.</p>
 		<span class="k">static</span> <span class="kt">ble_gap_sec_keyset_t</span> <span class="n">keys_exchanged</span><span class="p">;</span>
 
     <span class="k">switch</span> <span class="p">(</span><span class="n">p_ble_evt</span><span class="o">-&gt;</span><span class="n">header</span><span class="p">.</span><span class="n">evt_id</span><span class="p">)</span>
-    <span class="p">{</span>
-        <span class="k">case</span> <span class="nl">BLE_GAP_EVT_CONNECTED</span><span class="p">:</span>
+    <span class="p">{</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-19'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-19'>#</a>
+      </div>
+      <p>상대방이 접속했을때</p>
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre>        <span class="k">case</span> <span class="nl">BLE_GAP_EVT_CONNECTED</span><span class="p">:</span>
             <span class="n">nrf_gpio_pin_set</span><span class="p">(</span><span class="n">CONNECTED_LED_PIN_NO</span><span class="p">);</span>
             <span class="n">nrf_gpio_pin_clear</span><span class="p">(</span><span class="n">ADVERTISING_LED_PIN_NO</span><span class="p">);</span>
             <span class="n">m_conn_handle</span> <span class="o">=</span> <span class="n">p_ble_evt</span><span class="o">-&gt;</span><span class="n">evt</span><span class="p">.</span><span class="n">gap_evt</span><span class="p">.</span><span class="n">conn_handle</span><span class="p">;</span>
 
             <span class="n">err_code</span> <span class="o">=</span> <span class="n">app_button_enable</span><span class="p">();</span>
             <span class="n">APP_ERROR_CHECK</span><span class="p">(</span><span class="n">err_code</span><span class="p">);</span>
-            <span class="k">break</span><span class="p">;</span>
-
-        <span class="k">case</span> <span class="nl">BLE_GAP_EVT_DISCONNECTED</span><span class="p">:</span>
+            <span class="k">break</span><span class="p">;</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-20'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-20'>#</a>
+      </div>
+      <p>상대방이 접속을 끈었을때</p>
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre>        <span class="k">case</span> <span class="nl">BLE_GAP_EVT_DISCONNECTED</span><span class="p">:</span>
             <span class="n">nrf_gpio_pin_clear</span><span class="p">(</span><span class="n">CONNECTED_LED_PIN_NO</span><span class="p">);</span>
             <span class="n">m_conn_handle</span> <span class="o">=</span> <span class="n">BLE_CONN_HANDLE_INVALID</span><span class="p">;</span>
 
@@ -500,9 +521,19 @@ Advertising 시작되면 ADVERTISING_LED_PIN_NO LED를 켜네.</p>
             <span class="n">APP_ERROR_CHECK</span><span class="p">(</span><span class="n">err_code</span><span class="p">);</span>
             
             <span class="n">advertising_start</span><span class="p">();</span>
-            <span class="k">break</span><span class="p">;</span>
-
-        <span class="k">case</span> <span class="nl">BLE_GAP_EVT_SEC_PARAMS_REQUEST</span><span class="p">:</span>
+            <span class="k">break</span><span class="p">;</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-21'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-21'>#</a>
+      </div>
+      <p>보안설정을 요구할때</p>
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre>        <span class="k">case</span> <span class="nl">BLE_GAP_EVT_SEC_PARAMS_REQUEST</span><span class="p">:</span>
             <span class="n">err_code</span> <span class="o">=</span> <span class="n">sd_ble_gap_sec_params_reply</span><span class="p">(</span><span class="n">m_conn_handle</span><span class="p">,</span>
                                                    <span class="n">BLE_GAP_SEC_STATUS_SUCCESS</span><span class="p">,</span>
                                                    <span class="o">&amp;</span><span class="n">m_sec_params</span><span class="p">,</span><span class="o">&amp;</span><span class="n">keys_exchanged</span><span class="p">);</span>
@@ -512,13 +543,33 @@ Advertising 시작되면 ADVERTISING_LED_PIN_NO LED를 켜네.</p>
         <span class="k">case</span> <span class="nl">BLE_GATTS_EVT_SYS_ATTR_MISSING</span><span class="p">:</span>
             <span class="n">err_code</span> <span class="o">=</span> <span class="n">sd_ble_gatts_sys_attr_set</span><span class="p">(</span><span class="n">m_conn_handle</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span><span class="n">BLE_GATTS_SYS_ATTR_FLAG_USR_SRVCS</span><span class="p">);</span>
             <span class="n">APP_ERROR_CHECK</span><span class="p">(</span><span class="n">err_code</span><span class="p">);</span>
-            <span class="k">break</span><span class="p">;</span>
-
-        <span class="k">case</span> <span class="nl">BLE_GAP_EVT_AUTH_STATUS</span><span class="p">:</span>
+            <span class="k">break</span><span class="p">;</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-22'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-22'>#</a>
+      </div>
+      <p>인증 완료후!</p>
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre>        <span class="k">case</span> <span class="nl">BLE_GAP_EVT_AUTH_STATUS</span><span class="p">:</span>
             <span class="n">m_auth_status</span> <span class="o">=</span> <span class="n">p_ble_evt</span><span class="o">-&gt;</span><span class="n">evt</span><span class="p">.</span><span class="n">gap_evt</span><span class="p">.</span><span class="n">params</span><span class="p">.</span><span class="n">auth_status</span><span class="p">;</span>
-            <span class="k">break</span><span class="p">;</span>
-
-        <span class="k">case</span> <span class="nl">BLE_GAP_EVT_SEC_INFO_REQUEST</span><span class="p">:</span>
+            <span class="k">break</span><span class="p">;</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-23'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-23'>#</a>
+      </div>
+      <p>보안정보를 요구 할때 </p>
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre>        <span class="k">case</span> <span class="nl">BLE_GAP_EVT_SEC_INFO_REQUEST</span><span class="p">:</span>
 						
             <span class="k">if</span> <span class="p">(</span><span class="n">p_master_id</span><span class="p">.</span><span class="n">ediv</span> <span class="o">==</span> <span class="n">p_ble_evt</span><span class="o">-&gt;</span><span class="n">evt</span><span class="p">.</span><span class="n">gap_evt</span><span class="p">.</span><span class="n">params</span><span class="p">.</span><span class="n">sec_info_request</span><span class="p">.</span><span class="n">master_id</span><span class="p">.</span><span class="n">ediv</span><span class="p">)</span>
             <span class="p">{</span>
@@ -531,9 +582,19 @@ Advertising 시작되면 ADVERTISING_LED_PIN_NO LED를 켜네.</p>
                 <span class="n">err_code</span> <span class="o">=</span> <span class="n">sd_ble_gap_sec_info_reply</span><span class="p">(</span><span class="n">m_conn_handle</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span><span class="nb">NULL</span><span class="p">);</span>
                 <span class="n">APP_ERROR_CHECK</span><span class="p">(</span><span class="n">err_code</span><span class="p">);</span>
             <span class="p">}</span>
-            <span class="k">break</span><span class="p">;</span>
-
-        <span class="k">case</span> <span class="nl">BLE_GAP_EVT_TIMEOUT</span><span class="p">:</span>
+            <span class="k">break</span><span class="p">;</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-24'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-24'>#</a>
+      </div>
+      <p>GAP 타임아웃</p>
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre>        <span class="k">case</span> <span class="nl">BLE_GAP_EVT_TIMEOUT</span><span class="p">:</span>
             <span class="k">if</span> <span class="p">(</span><span class="n">p_ble_evt</span><span class="o">-&gt;</span><span class="n">evt</span><span class="p">.</span><span class="n">gap_evt</span><span class="p">.</span><span class="n">params</span><span class="p">.</span><span class="n">timeout</span><span class="p">.</span><span class="n">src</span> <span class="o">==</span> <span class="n">BLE_GAP_TIMEOUT_SRC_ADVERTISING</span><span class="p">)</span>
             <span class="p">{</span>
                 <span class="n">nrf_gpio_pin_clear</span><span class="p">(</span><span class="n">ADVERTISING_LED_PIN_NO</span><span class="p">);</span>
@@ -551,10 +612,10 @@ Advertising 시작되면 ADVERTISING_LED_PIN_NO LED를 켜네.</p>
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-19'>
+  <div class='section' id='section-25'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-19'>#</a>
+        <a class='octothorpe' href='#section-25'>#</a>
       </div>
       <p>No implementation needed.</p>
     </div>
@@ -568,10 +629,10 @@ Advertising 시작되면 ADVERTISING_LED_PIN_NO LED를 켜네.</p>
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-20'>
+  <div class='section' id='section-26'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-20'>#</a>
+        <a class='octothorpe' href='#section-26'>#</a>
       </div>
       <p>ble_evt_dispatch BLE Stack 이벤트가 발생하면 실행되는 함수
 on_ble_evt, ble_conn_params_on_ble_evt, ble_lbs_on_ble_evt 를 콜해서
@@ -587,10 +648,10 @@ on_ble_evt, ble_conn_params_on_ble_evt, ble_lbs_on_ble_evt 를 콜해서
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-21'>
+  <div class='section' id='section-27'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-21'>#</a>
+        <a class='octothorpe' href='#section-27'>#</a>
       </div>
       <p>시스템 이벤트가 발생하면 실행 (dispatch)</p>
     </div>
@@ -602,10 +663,10 @@ on_ble_evt, ble_conn_params_on_ble_evt, ble_lbs_on_ble_evt 를 콜해서
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-22'>
+  <div class='section' id='section-28'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-22'>#</a>
+        <a class='octothorpe' href='#section-28'>#</a>
       </div>
       <p>BLE 스택 초기화</p>
     </div>
@@ -641,10 +702,10 @@ on_ble_evt, ble_conn_params_on_ble_evt, ble_lbs_on_ble_evt 를 콜해서
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-23'>
+  <div class='section' id='section-29'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-23'>#</a>
+        <a class='octothorpe' href='#section-29'>#</a>
       </div>
       <p>이벤트 스케줄러 실행 (확인 필요) 이걸 해서 뭘 실행하는거냐?</p>
     </div>
@@ -679,10 +740,10 @@ on_ble_evt, ble_conn_params_on_ble_evt, ble_lbs_on_ble_evt 를 콜해서
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-24'>
+  <div class='section' id='section-30'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-24'>#</a>
+        <a class='octothorpe' href='#section-30'>#</a>
       </div>
       <p>GPIOTE 주변장치 초기화</p>
     </div>
@@ -694,10 +755,10 @@ on_ble_evt, ble_conn_params_on_ble_evt, ble_lbs_on_ble_evt 를 콜해서
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-25'>
+  <div class='section' id='section-31'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-25'>#</a>
+        <a class='octothorpe' href='#section-31'>#</a>
       </div>
       <p>버튼 초기화. 기본 풀업.</p>
     </div>
@@ -718,10 +779,10 @@ on_ble_evt, ble_conn_params_on_ble_evt, ble_lbs_on_ble_evt 를 콜해서
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-26'>
+  <div class='section' id='section-32'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-26'>#</a>
+        <a class='octothorpe' href='#section-32'>#</a>
       </div>
       <p>power_manage: 슬립 슬립</p>
     </div>
@@ -734,10 +795,10 @@ on_ble_evt, ble_conn_params_on_ble_evt, ble_lbs_on_ble_evt 를 콜해서
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-27'>
+  <div class='section' id='section-33'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-27'>#</a>
+        <a class='octothorpe' href='#section-33'>#</a>
       </div>
       <h1>main 함수</h1>
 <ul>
@@ -775,10 +836,10 @@ on_ble_evt, ble_conn_params_on_ble_evt, ble_lbs_on_ble_evt 를 콜해서
     </div>
   </div>
   <div class='clearall'></div>
-  <div class='section' id='section-28'>
+  <div class='section' id='section-34'>
     <div class='docs'>
       <div class='octowrap'>
-        <a class='octothorpe' href='#section-28'>#</a>
+        <a class='octothorpe' href='#section-34'>#</a>
       </div>
       <p>메인루프에서는 케쥴러에 일이 있으면 실행하고, 슬립모드에 들어간다. </p>
     </div>
