@@ -308,6 +308,7 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
 
     switch (p_ble_evt->header.evt_id)
     {
+      // 상대방이 접속했을때
         case BLE_GAP_EVT_CONNECTED:
             nrf_gpio_pin_set(CONNECTED_LED_PIN_NO);
             nrf_gpio_pin_clear(ADVERTISING_LED_PIN_NO);
@@ -317,6 +318,7 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
             APP_ERROR_CHECK(err_code);
             break;
 
+      // 상대방이 접속을 끈었을때
         case BLE_GAP_EVT_DISCONNECTED:
             nrf_gpio_pin_clear(CONNECTED_LED_PIN_NO);
             m_conn_handle = BLE_CONN_HANDLE_INVALID;
@@ -327,6 +329,7 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
             advertising_start();
             break;
 
+        // 보안설정을 요구할때
         case BLE_GAP_EVT_SEC_PARAMS_REQUEST:
             err_code = sd_ble_gap_sec_params_reply(m_conn_handle,
                                                    BLE_GAP_SEC_STATUS_SUCCESS,
@@ -339,10 +342,12 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
             APP_ERROR_CHECK(err_code);
             break;
 
+        // 인증 완료후!
         case BLE_GAP_EVT_AUTH_STATUS:
             m_auth_status = p_ble_evt->evt.gap_evt.params.auth_status;
             break;
 
+        // 보안정보를 요구 할때 
         case BLE_GAP_EVT_SEC_INFO_REQUEST:
 						
             if (p_master_id.ediv == p_ble_evt->evt.gap_evt.params.sec_info_request.master_id.ediv)
@@ -358,6 +363,7 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
             }
             break;
 
+        // GAP 타임아웃
         case BLE_GAP_EVT_TIMEOUT:
             if (p_ble_evt->evt.gap_evt.params.timeout.src == BLE_GAP_TIMEOUT_SRC_ADVERTISING)
             {
