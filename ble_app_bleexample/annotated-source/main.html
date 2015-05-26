@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="content-type" content="text/html;charset=utf-8">
+  <title>main.c</title>
+  <link rel="stylesheet" href="pycco.css">
+</head>
+<body>
+<div id="background"></div>
+<div id='container'>
+  <div class='section'>
+    <div class='docs'><h1>main.c</h1></div>
+  </div>
+  <div class='clearall'>
+  <div class='section' id='section-0'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-0'>#</a>
+      </div>
+      <p><img alt="" src="http://subak.io/wp-content/uploads/2015/04/cropped-subak.png" /></p>
+<h1>BLE 서비스 예제 분석</h1>
+<p>일시: 20150526
+작성: subak.io</p>
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre><span class="cm">/* Copyright (c) 2013 Nordic Semiconductor. All Rights Reserved.</span>
+<span class="cm"> *</span>
+<span class="cm"> * Use of this source code is governed by a BSD-style license that can be</span>
+<span class="cm"> * found in the license.txt file.</span>
+<span class="cm"> */</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-1'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-1'>#</a>
+      </div>
+      <p><a href="https://www.nordicsemi.com/eng/nordic/download_resource/24020/5/86719377">nAN-36</a> 참고</p>
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre> 
+<span class="cm">/**</span>
+<span class="cm"> * This file is the main file for the application described in application note</span>
+<span class="cm"> * nAN-36 Creating Bluetooth� Low Energy Applications Using nRF51822.</span>
+<span class="cm"> */</span>
+
+<span class="cp">#include &lt;stdint.h&gt;</span>
+<span class="cp">#include &lt;string.h&gt;</span>
+<span class="cp">#include &quot;nordic_common.h&quot;</span>
+<span class="cp">#include &quot;nrf.h&quot;</span>
+<span class="cp">#include &quot;app_error.h&quot;</span>
+<span class="cp">#include &quot;nrf_gpio.h&quot;</span>
+<span class="cp">#include &quot;nrf51_bitfields.h&quot;</span>
+<span class="cp">#include &quot;ble.h&quot;</span>
+<span class="cp">#include &quot;ble_hci.h&quot;</span>
+<span class="cp">#include &quot;ble_srv_common.h&quot;</span>
+<span class="cp">#include &quot;ble_advdata.h&quot;</span>
+<span class="cp">#include &quot;ble_conn_params.h&quot;</span>
+<span class="cp">#include &quot;boards.h&quot;</span>
+<span class="cp">#include &quot;app_scheduler.h&quot;</span>
+<span class="cp">#include &quot;softdevice_handler.h&quot;</span>
+<span class="cp">#include &quot;app_timer_appsh.h&quot;</span>
+<span class="cp">#include &quot;ble_error_log.h&quot;</span>
+<span class="cp">#include &quot;app_gpiote.h&quot;</span>
+<span class="cp">#include &quot;app_button.h&quot;</span>
+<span class="cp">#include &quot;ble_debug_assert_handler.h&quot;</span>
+<span class="cp">#include &quot;pstorage.h&quot;</span>
+<span class="cp">#include &quot;ble_lbs.h&quot;</span>
+<span class="cp">#include &quot;bsp.h&quot;</span>
+<span class="cp">#include &quot;ble_gap.h&quot;</span>
+<span class="cp">#define IS_SRVC_CHANGED_CHARACT_PRESENT 0                                           </span><span class="cm">/**&lt; Include or not the service_changed characteristic. if not enabled, the server&#39;s database cannot be changed for the lifetime of the device*/</span><span class="cp"></span>
+
+<span class="cp">#define WAKEUP_BUTTON_PIN               BSP_BUTTON_0                                </span><span class="cm">/**&lt; Button used to wake up the application. */</span><span class="cp"></span>
+
+<span class="cp">#define ADVERTISING_LED_PIN_NO          BSP_LED_0                                   </span><span class="cm">/**&lt; Is on when device is advertising. */</span><span class="cp"></span>
+<span class="cp">#define CONNECTED_LED_PIN_NO            BSP_LED_1                                   </span><span class="cm">/**&lt; Is on when device has connected. */</span><span class="cp"></span>
+
+<span class="cp">#define LEDBUTTON_LED_PIN_NO            BSP_LED_0</span>
+<span class="cp">#define LEDBUTTON_BUTTON_PIN_NO         BSP_BUTTON_1</span>
+
+<span class="cp">#define DEVICE_NAME                     &quot;LedButtonDemo&quot;                             </span><span class="cm">/**&lt; Name of device. Will be included in the advertising data. */</span><span class="cp"></span>
+
+<span class="cp">#define APP_ADV_INTERVAL                64                                          </span><span class="cm">/**&lt; The advertising interval (in units of 0.625 ms. This value corresponds to 40 ms). */</span><span class="cp"></span>
+<span class="cp">#define APP_ADV_TIMEOUT_IN_SECONDS      180                                         </span><span class="cm">/**&lt; The advertising timeout (in units of seconds). */</span><span class="cp"></span>
+
+<span class="cp">#define APP_TIMER_PRESCALER             0                                           </span><span class="cm">/**&lt; Value of the RTC1 PRESCALER register. */</span><span class="cp"></span>
+<span class="cp">#define APP_TIMER_MAX_TIMERS            2                                           </span><span class="cm">/**&lt; Maximum number of simultaneously created timers. */</span><span class="cp"></span>
+<span class="cp">#define APP_TIMER_OP_QUEUE_SIZE         4                                           </span><span class="cm">/**&lt; Size of timer operation queues. */</span><span class="cp"></span>
+
+<span class="cp">#define MIN_CONN_INTERVAL               MSEC_TO_UNITS(100, UNIT_1_25_MS)            </span><span class="cm">/**&lt; Minimum acceptable connection interval (0.5 seconds). */</span><span class="cp"></span>
+<span class="cp">#define MAX_CONN_INTERVAL               MSEC_TO_UNITS(200, UNIT_1_25_MS)            </span><span class="cm">/**&lt; Maximum acceptable connection interval (1 second). */</span><span class="cp"></span>
+<span class="cp">#define SLAVE_LATENCY                   0                                           </span><span class="cm">/**&lt; Slave latency. */</span><span class="cp"></span>
+<span class="cp">#define CONN_SUP_TIMEOUT                MSEC_TO_UNITS(4000, UNIT_10_MS)             </span><span class="cm">/**&lt; Connection supervisory timeout (4 seconds). */</span><span class="cp"></span>
+<span class="cp">#define FIRST_CONN_PARAMS_UPDATE_DELAY  APP_TIMER_TICKS(20000, APP_TIMER_PRESCALER) </span><span class="cm">/**&lt; Time from initiating event (connect or start of notification) to first time sd_ble_gap_conn_param_update is called (15 seconds). */</span><span class="cp"></span>
+<span class="cp">#define NEXT_CONN_PARAMS_UPDATE_DELAY   APP_TIMER_TICKS(5000, APP_TIMER_PRESCALER)  </span><span class="cm">/**&lt; Time between each call to sd_ble_gap_conn_param_update after the first call (5 seconds). */</span><span class="cp"></span>
+<span class="cp">#define MAX_CONN_PARAMS_UPDATE_COUNT    3                                           </span><span class="cm">/**&lt; Number of attempts before giving up the connection parameter negotiation. */</span><span class="cp"></span>
+
+<span class="cp">#define APP_GPIOTE_MAX_USERS            1                                           </span><span class="cm">/**&lt; Maximum number of users of the GPIOTE handler. */</span><span class="cp"></span>
+
+<span class="cp">#define BUTTON_DETECTION_DELAY          APP_TIMER_TICKS(50, APP_TIMER_PRESCALER)    </span><span class="cm">/**&lt; Delay from a GPIOTE event until a button is reported as pushed (in number of timer ticks). */</span><span class="cp"></span>
+
+<span class="cp">#define SEC_PARAM_TIMEOUT               30                                          </span><span class="cm">/**&lt; Timeout for Pairing Request or Security Request (in seconds). */</span><span class="cp"></span>
+<span class="cp">#define SEC_PARAM_BOND                  1                                           </span><span class="cm">/**&lt; Perform bonding. */</span><span class="cp"></span>
+<span class="cp">#define SEC_PARAM_MITM                  0                                           </span><span class="cm">/**&lt; Man In The Middle protection not required. */</span><span class="cp"></span>
+<span class="cp">#define SEC_PARAM_IO_CAPABILITIES       BLE_GAP_IO_CAPS_NONE                        </span><span class="cm">/**&lt; No I/O capabilities. */</span><span class="cp"></span>
+<span class="cp">#define SEC_PARAM_OOB                   0                                           </span><span class="cm">/**&lt; Out Of Band data not available. */</span><span class="cp"></span>
+<span class="cp">#define SEC_PARAM_MIN_KEY_SIZE          7                                           </span><span class="cm">/**&lt; Minimum encryption key size. */</span><span class="cp"></span>
+<span class="cp">#define SEC_PARAM_MAX_KEY_SIZE          16                                          </span><span class="cm">/**&lt; Maximum encryption key size. */</span><span class="cp"></span>
+
+<span class="cp">#define DEAD_BEEF                       0xDEADBEEF                                  </span><span class="cm">/**&lt; Value used as error code on stack dump, can be used to identify stack location on stack unwind. */</span><span class="cp"></span>
+
+<span class="k">static</span> <span class="kt">ble_gap_sec_params_t</span>             <span class="n">m_sec_params</span><span class="p">;</span>                               <span class="cm">/**&lt; Security requirements for this application. */</span>
+<span class="k">static</span> <span class="kt">uint16_t</span>                         <span class="n">m_conn_handle</span> <span class="o">=</span> <span class="n">BLE_CONN_HANDLE_INVALID</span><span class="p">;</span>    <span class="cm">/**&lt; Handle of the current connection. */</span>
+<span class="k">static</span> <span class="kt">ble_lbs_t</span>                        <span class="n">m_lbs</span><span class="p">;</span>
+
+<span class="cp">#define SCHED_MAX_EVENT_DATA_SIZE       sizeof(app_timer_event_t)                   </span><span class="cm">/**&lt; Maximum size of scheduler events. Note that scheduler BLE stack events do not contain any data, as the events are being pulled from the stack in the event handler. */</span><span class="cp"></span>
+<span class="cp">#define SCHED_QUEUE_SIZE                10                                          </span><span class="cm">/**&lt; Maximum number of events in the scheduler queue. */</span><span class="cp"></span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-2'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-2'>#</a>
+      </div>
+      <p>Persistent storage system event handler
+에러의 결과를 저장하는 듯 (확인필요)</p>
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre><span class="kt">void</span> <span class="nf">pstorage_sys_event_handler</span> <span class="p">(</span><span class="kt">uint32_t</span> <span class="n">p_evt</span><span class="p">);</span>
+
+<span class="kt">void</span> <span class="nf">app_error_handler</span><span class="p">(</span><span class="kt">uint32_t</span> <span class="n">error_code</span><span class="p">,</span> <span class="kt">uint32_t</span> <span class="n">line_num</span><span class="p">,</span> <span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">*</span> <span class="n">p_file_name</span><span class="p">)</span>
+<span class="p">{</span>
+   <span class="n">ble_debug_assert_handler</span><span class="p">(</span><span class="n">error_code</span><span class="p">,</span> <span class="n">line_num</span><span class="p">,</span> <span class="n">p_file_name</span><span class="p">);</span>
+
+    <span class="cm">/* On assert, the system can only recover with a reset.</span>
+<span class="cm">    NVIC_SystemReset();</span>
+<span class="cm">    */</span>
+<span class="p">}</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-3'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-3'>#</a>
+      </div>
+      <p>SoftDevice에서 assert할때 false 나면 실행되는 콜백함수 </p>
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre><span class="kt">void</span> <span class="nf">assert_nrf_callback</span><span class="p">(</span><span class="kt">uint16_t</span> <span class="n">line_num</span><span class="p">,</span> <span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">*</span> <span class="n">p_file_name</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">app_error_handler</span><span class="p">(</span><span class="n">DEAD_BEEF</span><span class="p">,</span> <span class="n">line_num</span><span class="p">,</span> <span class="n">p_file_name</span><span class="p">);</span>
+<span class="p">}</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-4'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-4'>#</a>
+      </div>
+      <p>BLE 상태 표시하는 LED를 위한 GPIO 초기화 </p>
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre><span class="k">static</span> <span class="kt">void</span> <span class="nf">leds_init</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">nrf_gpio_cfg_output</span><span class="p">(</span><span class="n">ADVERTISING_LED_PIN_NO</span><span class="p">);</span>
+    <span class="n">nrf_gpio_cfg_output</span><span class="p">(</span><span class="n">CONNECTED_LED_PIN_NO</span><span class="p">);</span>
+    <span class="n">nrf_gpio_cfg_output</span><span class="p">(</span><span class="n">LEDBUTTON_LED_PIN_NO</span><span class="p">);</span>
+<span class="p">}</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-5'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-5'>#</a>
+      </div>
+      <p>TIMER 초기화. 스케쥴러에서 이용</p>
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre><span class="k">static</span> <span class="kt">void</span> <span class="nf">timers_init</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">APP_TIMER_APPSH_INIT</span><span class="p">(</span><span class="n">APP_TIMER_PRESCALER</span><span class="p">,</span> <span class="n">APP_TIMER_MAX_TIMERS</span><span class="p">,</span> <span class="n">APP_TIMER_OP_QUEUE_SIZE</span><span class="p">,</span> <span class="nb">true</span><span class="p">);</span>
+<span class="p">}</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-6'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-6'>#</a>
+      </div>
+      <p>BLE GAP 초기화 (디바이스 이름, 외형?, 접속 설정... 설정값)
+DEVICE_NAME 을 수정하면 목록에 뜨는 이름이 수정되나 (확인필요)</p>
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre><span class="k">static</span> <span class="kt">void</span> <span class="nf">gap_params_init</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="kt">uint32_t</span>                <span class="n">err_code</span><span class="p">;</span>
+    <span class="kt">ble_gap_conn_params_t</span>   <span class="n">gap_conn_params</span><span class="p">;</span>
+    <span class="kt">ble_gap_conn_sec_mode_t</span> <span class="n">sec_mode</span><span class="p">;</span>
+
+    <span class="n">BLE_GAP_CONN_SEC_MODE_SET_OPEN</span><span class="p">(</span><span class="o">&amp;</span><span class="n">sec_mode</span><span class="p">);</span>
+
+    <span class="n">err_code</span> <span class="o">=</span> <span class="n">sd_ble_gap_device_name_set</span><span class="p">(</span><span class="o">&amp;</span><span class="n">sec_mode</span><span class="p">,</span>
+                                          <span class="p">(</span><span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">*</span><span class="p">)</span><span class="n">DEVICE_NAME</span><span class="p">,</span>
+                                          <span class="n">strlen</span><span class="p">(</span><span class="n">DEVICE_NAME</span><span class="p">));</span>
+    <span class="n">APP_ERROR_CHECK</span><span class="p">(</span><span class="n">err_code</span><span class="p">);</span>
+
+    <span class="n">memset</span><span class="p">(</span><span class="o">&amp;</span><span class="n">gap_conn_params</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">gap_conn_params</span><span class="p">));</span>
+
+    <span class="n">gap_conn_params</span><span class="p">.</span><span class="n">min_conn_interval</span> <span class="o">=</span> <span class="n">MIN_CONN_INTERVAL</span><span class="p">;</span>
+    <span class="n">gap_conn_params</span><span class="p">.</span><span class="n">max_conn_interval</span> <span class="o">=</span> <span class="n">MAX_CONN_INTERVAL</span><span class="p">;</span>
+    <span class="n">gap_conn_params</span><span class="p">.</span><span class="n">slave_latency</span>     <span class="o">=</span> <span class="n">SLAVE_LATENCY</span><span class="p">;</span>
+    <span class="n">gap_conn_params</span><span class="p">.</span><span class="n">conn_sup_timeout</span>  <span class="o">=</span> <span class="n">CONN_SUP_TIMEOUT</span><span class="p">;</span>
+
+    <span class="n">err_code</span> <span class="o">=</span> <span class="n">sd_ble_gap_ppcp_set</span><span class="p">(</span><span class="o">&amp;</span><span class="n">gap_conn_params</span><span class="p">);</span>
+    <span class="n">APP_ERROR_CHECK</span><span class="p">(</span><span class="n">err_code</span><span class="p">);</span>
+<span class="p">}</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-7'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-7'>#</a>
+      </div>
+      <p>BLE Advertising 초기화</p>
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre><span class="k">static</span> <span class="kt">void</span> <span class="nf">advertising_init</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="kt">uint32_t</span>      <span class="n">err_code</span><span class="p">;</span>
+    <span class="kt">ble_advdata_t</span> <span class="n">advdata</span><span class="p">;</span>
+    <span class="kt">ble_advdata_t</span> <span class="n">scanrsp</span><span class="p">;</span>
+    
+    <span class="kt">ble_uuid_t</span> <span class="n">adv_uuids</span><span class="p">[]</span> <span class="o">=</span> <span class="p">{{</span><span class="n">LBS_UUID_SERVICE</span><span class="p">,</span> <span class="n">m_lbs</span><span class="p">.</span><span class="n">uuid_type</span><span class="p">}};</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-8'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-8'>#</a>
+      </div>
+      <p>BLE Advertising 값 만들기 advdata에 설정.</p>
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre>    <span class="n">memset</span><span class="p">(</span><span class="o">&amp;</span><span class="n">advdata</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">advdata</span><span class="p">));</span>
+
+    <span class="n">advdata</span><span class="p">.</span><span class="n">name_type</span>               <span class="o">=</span> <span class="n">BLE_ADVDATA_FULL_NAME</span><span class="p">;</span>
+    <span class="n">advdata</span><span class="p">.</span><span class="n">include_appearance</span>      <span class="o">=</span> <span class="nb">true</span><span class="p">;</span>
+    <span class="n">advdata</span><span class="p">.</span><span class="n">flags</span>                   <span class="o">=</span> <span class="n">BLE_GAP_ADV_FLAGS_LE_ONLY_LIMITED_DISC_MODE</span><span class="p">;</span>
+
+  
+    <span class="n">memset</span><span class="p">(</span><span class="o">&amp;</span><span class="n">scanrsp</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">scanrsp</span><span class="p">));</span>
+    <span class="n">scanrsp</span><span class="p">.</span><span class="n">uuids_complete</span><span class="p">.</span><span class="n">uuid_cnt</span> <span class="o">=</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">adv_uuids</span><span class="p">)</span> <span class="o">/</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">adv_uuids</span><span class="p">[</span><span class="mi">0</span><span class="p">]);</span>
+    <span class="n">scanrsp</span><span class="p">.</span><span class="n">uuids_complete</span><span class="p">.</span><span class="n">p_uuids</span>  <span class="o">=</span> <span class="n">adv_uuids</span><span class="p">;</span>
+    
+    <span class="n">err_code</span> <span class="o">=</span> <span class="n">ble_advdata_set</span><span class="p">(</span><span class="o">&amp;</span><span class="n">advdata</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">scanrsp</span><span class="p">);</span>
+    <span class="n">APP_ERROR_CHECK</span><span class="p">(</span><span class="n">err_code</span><span class="p">);</span>
+<span class="p">}</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-9'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-9'>#</a>
+      </div>
+      <p>커스텀 서비스에서 led 를 켜고 끄기위한 핸들러.
+일부러 어플래케이션 단에 두었다. </p>
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre><span class="k">static</span> <span class="kt">void</span> <span class="nf">led_write_handler</span><span class="p">(</span><span class="kt">ble_lbs_t</span> <span class="o">*</span> <span class="n">p_lbs</span><span class="p">,</span> <span class="kt">uint8_t</span> <span class="n">led_state</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">led_state</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">nrf_gpio_pin_set</span><span class="p">(</span><span class="n">LEDBUTTON_LED_PIN_NO</span><span class="p">);</span>
+    <span class="p">}</span>
+    <span class="k">else</span>
+    <span class="p">{</span>
+        <span class="n">nrf_gpio_pin_clear</span><span class="p">(</span><span class="n">LEDBUTTON_LED_PIN_NO</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-10'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-10'>#</a>
+      </div>
+      <p>LED Button 서비스 초기화. 커스텀 서비스</p>
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre><span class="k">static</span> <span class="kt">void</span> <span class="nf">services_init</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="kt">uint32_t</span> <span class="n">err_code</span><span class="p">;</span>
+    <span class="kt">ble_lbs_init_t</span> <span class="n">init</span><span class="p">;</span>
+    
+    <span class="n">init</span><span class="p">.</span><span class="n">led_write_handler</span> <span class="o">=</span> <span class="n">led_write_handler</span><span class="p">;</span>
+    
+    <span class="n">err_code</span> <span class="o">=</span> <span class="n">ble_lbs_init</span><span class="p">(</span><span class="o">&amp;</span><span class="n">m_lbs</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">init</span><span class="p">);</span>
+    <span class="n">APP_ERROR_CHECK</span><span class="p">(</span><span class="n">err_code</span><span class="p">);</span>
+<span class="p">}</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-11'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-11'>#</a>
+      </div>
+      <p>BLE 보안설정</p>
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre><span class="k">static</span> <span class="kt">void</span> <span class="nf">sec_params_init</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+    
+    <span class="n">m_sec_params</span><span class="p">.</span><span class="n">bond</span>         <span class="o">=</span> <span class="n">SEC_PARAM_BOND</span><span class="p">;</span>
+    <span class="n">m_sec_params</span><span class="p">.</span><span class="n">mitm</span>         <span class="o">=</span> <span class="n">SEC_PARAM_MITM</span><span class="p">;</span>
+    <span class="n">m_sec_params</span><span class="p">.</span><span class="n">io_caps</span>      <span class="o">=</span> <span class="n">SEC_PARAM_IO_CAPABILITIES</span><span class="p">;</span>
+    <span class="n">m_sec_params</span><span class="p">.</span><span class="n">oob</span>          <span class="o">=</span> <span class="n">SEC_PARAM_OOB</span><span class="p">;</span>
+    <span class="n">m_sec_params</span><span class="p">.</span><span class="n">min_key_size</span> <span class="o">=</span> <span class="n">SEC_PARAM_MIN_KEY_SIZE</span><span class="p">;</span>
+    <span class="n">m_sec_params</span><span class="p">.</span><span class="n">max_key_size</span> <span class="o">=</span> <span class="n">SEC_PARAM_MAX_KEY_SIZE</span><span class="p">;</span>
+<span class="p">}</span>
+
+
+
+<span class="cm">/**@brief Function for handling the Connection Parameters Module.</span>
+<span class="cm"> *</span>
+<span class="cm"> * @details This function will be called for all events in the Connection Parameters Module which</span>
+<span class="cm"> *          are passed to the application.</span>
+<span class="cm"> *          @note All this function does is to disconnect. This could have been done by simply</span>
+<span class="cm"> *                setting the disconnect_on_fail config parameter, but instead we use the event</span>
+<span class="cm"> *                handler mechanism to demonstrate its use.</span>
+<span class="cm"> *</span>
+<span class="cm"> * @param[in]   p_evt   Event received from the Connection Parameters Module.</span>
+<span class="cm"> */</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-12'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-12'>#</a>
+      </div>
+      <p>커넥션 파라미터 모듈의 이벤트 핸들러. </p>
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre><span class="k">static</span> <span class="kt">void</span> <span class="nf">on_conn_params_evt</span><span class="p">(</span><span class="kt">ble_conn_params_evt_t</span> <span class="o">*</span> <span class="n">p_evt</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="kt">uint32_t</span> <span class="n">err_code</span><span class="p">;</span>
+
+    <span class="k">if</span><span class="p">(</span><span class="n">p_evt</span><span class="o">-&gt;</span><span class="n">evt_type</span> <span class="o">==</span> <span class="n">BLE_CONN_PARAMS_EVT_FAILED</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">err_code</span> <span class="o">=</span> <span class="n">sd_ble_gap_disconnect</span><span class="p">(</span><span class="n">m_conn_handle</span><span class="p">,</span> <span class="n">BLE_HCI_CONN_INTERVAL_UNACCEPTABLE</span><span class="p">);</span>
+        <span class="n">APP_ERROR_CHECK</span><span class="p">(</span><span class="n">err_code</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-13'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-13'>#</a>
+      </div>
+      <p>커넥션 파라미터 에러가 나면 실행되는 핸들러.. nrf_error를 보면 왜 
+실행이 안되는지 정보가 있는 모양...</p>
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre><span class="k">static</span> <span class="kt">void</span> <span class="nf">conn_params_error_handler</span><span class="p">(</span><span class="kt">uint32_t</span> <span class="n">nrf_error</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">APP_ERROR_HANDLER</span><span class="p">(</span><span class="n">nrf_error</span><span class="p">);</span>
+<span class="p">}</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-14'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-14'>#</a>
+      </div>
+      <p>BLE 커넷션 설정 초기화</p>
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre><span class="k">static</span> <span class="kt">void</span> <span class="nf">conn_params_init</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="kt">uint32_t</span>               <span class="n">err_code</span><span class="p">;</span>
+    <span class="kt">ble_conn_params_init_t</span> <span class="n">cp_init</span><span class="p">;</span>
+
+    <span class="n">memset</span><span class="p">(</span><span class="o">&amp;</span><span class="n">cp_init</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">cp_init</span><span class="p">));</span>
+
+    <span class="n">cp_init</span><span class="p">.</span><span class="n">p_conn_params</span>                  <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+    <span class="n">cp_init</span><span class="p">.</span><span class="n">first_conn_params_update_delay</span> <span class="o">=</span> <span class="n">FIRST_CONN_PARAMS_UPDATE_DELAY</span><span class="p">;</span>
+    <span class="n">cp_init</span><span class="p">.</span><span class="n">next_conn_params_update_delay</span>  <span class="o">=</span> <span class="n">NEXT_CONN_PARAMS_UPDATE_DELAY</span><span class="p">;</span>
+    <span class="n">cp_init</span><span class="p">.</span><span class="n">max_conn_params_update_count</span>   <span class="o">=</span> <span class="n">MAX_CONN_PARAMS_UPDATE_COUNT</span><span class="p">;</span>
+    <span class="n">cp_init</span><span class="p">.</span><span class="n">start_on_notify_cccd_handle</span>    <span class="o">=</span> <span class="n">BLE_GATT_HANDLE_INVALID</span><span class="p">;</span>
+    <span class="n">cp_init</span><span class="p">.</span><span class="n">disconnect_on_fail</span>             <span class="o">=</span> <span class="nb">false</span><span class="p">;</span>
+    <span class="n">cp_init</span><span class="p">.</span><span class="n">evt_handler</span>                    <span class="o">=</span> <span class="n">on_conn_params_evt</span><span class="p">;</span>
+    <span class="n">cp_init</span><span class="p">.</span><span class="n">error_handler</span>                  <span class="o">=</span> <span class="n">conn_params_error_handler</span><span class="p">;</span>
+
+    <span class="n">err_code</span> <span class="o">=</span> <span class="n">ble_conn_params_init</span><span class="p">(</span><span class="o">&amp;</span><span class="n">cp_init</span><span class="p">);</span>
+    <span class="n">APP_ERROR_CHECK</span><span class="p">(</span><span class="n">err_code</span><span class="p">);</span>
+<span class="p">}</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-15'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-15'>#</a>
+      </div>
+      <p>타이머 시작인데... 아무일도 안하네</p>
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre><span class="k">static</span> <span class="kt">void</span> <span class="nf">timers_start</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="p">}</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-16'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-16'>#</a>
+      </div>
+      <p>BLE Advertising 시작
+Advertising 시작되면 ADVERTISING_LED_PIN_NO LED를 켜네.</p>
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre><span class="k">static</span> <span class="kt">void</span> <span class="nf">advertising_start</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="kt">uint32_t</span>             <span class="n">err_code</span><span class="p">;</span>
+    <span class="kt">ble_gap_adv_params_t</span> <span class="n">adv_params</span><span class="p">;</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-17'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-17'>#</a>
+      </div>
+      <p>Adavertising 설정값 지정</p>
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre>    <span class="n">memset</span><span class="p">(</span><span class="o">&amp;</span><span class="n">adv_params</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">adv_params</span><span class="p">));</span>
+
+    <span class="n">adv_params</span><span class="p">.</span><span class="n">type</span>        <span class="o">=</span> <span class="n">BLE_GAP_ADV_TYPE_ADV_IND</span><span class="p">;</span>
+    <span class="n">adv_params</span><span class="p">.</span><span class="n">p_peer_addr</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+    <span class="n">adv_params</span><span class="p">.</span><span class="n">fp</span>          <span class="o">=</span> <span class="n">BLE_GAP_ADV_FP_ANY</span><span class="p">;</span>
+    <span class="n">adv_params</span><span class="p">.</span><span class="n">interval</span>    <span class="o">=</span> <span class="n">APP_ADV_INTERVAL</span><span class="p">;</span>
+    <span class="n">adv_params</span><span class="p">.</span><span class="n">timeout</span>     <span class="o">=</span> <span class="n">APP_ADV_TIMEOUT_IN_SECONDS</span><span class="p">;</span>
+
+    <span class="n">err_code</span> <span class="o">=</span> <span class="n">sd_ble_gap_adv_start</span><span class="p">(</span><span class="o">&amp;</span><span class="n">adv_params</span><span class="p">);</span>
+    <span class="n">APP_ERROR_CHECK</span><span class="p">(</span><span class="n">err_code</span><span class="p">);</span>
+    <span class="n">nrf_gpio_pin_set</span><span class="p">(</span><span class="n">ADVERTISING_LED_PIN_NO</span><span class="p">);</span>
+<span class="p">}</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-18'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-18'>#</a>
+      </div>
+      <h1>on_ble_evt</h1>
+<p>응용프로그램에서의 BLE 이벤트 핸들러.
+응용프로그램단에 노출. 왜? 커넥션 정보를 이용하여 표시하거나 커넥션 정보를 이용하여 주변장치를 제어</p>
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre><span class="k">static</span> <span class="kt">void</span> <span class="nf">on_ble_evt</span><span class="p">(</span><span class="kt">ble_evt_t</span> <span class="o">*</span> <span class="n">p_ble_evt</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="kt">uint32_t</span>                         <span class="n">err_code</span><span class="p">;</span>
+    <span class="k">static</span> <span class="kt">ble_gap_evt_auth_status_t</span> <span class="n">m_auth_status</span><span class="p">;</span>
+		<span class="k">static</span> <span class="kt">ble_gap_master_id_t</span> <span class="n">p_master_id</span><span class="p">;</span>
+		<span class="k">static</span> <span class="kt">ble_gap_sec_keyset_t</span> <span class="n">keys_exchanged</span><span class="p">;</span>
+
+    <span class="k">switch</span> <span class="p">(</span><span class="n">p_ble_evt</span><span class="o">-&gt;</span><span class="n">header</span><span class="p">.</span><span class="n">evt_id</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">case</span> <span class="nl">BLE_GAP_EVT_CONNECTED</span><span class="p">:</span>
+            <span class="n">nrf_gpio_pin_set</span><span class="p">(</span><span class="n">CONNECTED_LED_PIN_NO</span><span class="p">);</span>
+            <span class="n">nrf_gpio_pin_clear</span><span class="p">(</span><span class="n">ADVERTISING_LED_PIN_NO</span><span class="p">);</span>
+            <span class="n">m_conn_handle</span> <span class="o">=</span> <span class="n">p_ble_evt</span><span class="o">-&gt;</span><span class="n">evt</span><span class="p">.</span><span class="n">gap_evt</span><span class="p">.</span><span class="n">conn_handle</span><span class="p">;</span>
+
+            <span class="n">err_code</span> <span class="o">=</span> <span class="n">app_button_enable</span><span class="p">();</span>
+            <span class="n">APP_ERROR_CHECK</span><span class="p">(</span><span class="n">err_code</span><span class="p">);</span>
+            <span class="k">break</span><span class="p">;</span>
+
+        <span class="k">case</span> <span class="nl">BLE_GAP_EVT_DISCONNECTED</span><span class="p">:</span>
+            <span class="n">nrf_gpio_pin_clear</span><span class="p">(</span><span class="n">CONNECTED_LED_PIN_NO</span><span class="p">);</span>
+            <span class="n">m_conn_handle</span> <span class="o">=</span> <span class="n">BLE_CONN_HANDLE_INVALID</span><span class="p">;</span>
+
+            <span class="n">err_code</span> <span class="o">=</span> <span class="n">app_button_disable</span><span class="p">();</span>
+            <span class="n">APP_ERROR_CHECK</span><span class="p">(</span><span class="n">err_code</span><span class="p">);</span>
+            
+            <span class="n">advertising_start</span><span class="p">();</span>
+            <span class="k">break</span><span class="p">;</span>
+
+        <span class="k">case</span> <span class="nl">BLE_GAP_EVT_SEC_PARAMS_REQUEST</span><span class="p">:</span>
+            <span class="n">err_code</span> <span class="o">=</span> <span class="n">sd_ble_gap_sec_params_reply</span><span class="p">(</span><span class="n">m_conn_handle</span><span class="p">,</span>
+                                                   <span class="n">BLE_GAP_SEC_STATUS_SUCCESS</span><span class="p">,</span>
+                                                   <span class="o">&amp;</span><span class="n">m_sec_params</span><span class="p">,</span><span class="o">&amp;</span><span class="n">keys_exchanged</span><span class="p">);</span>
+            <span class="n">APP_ERROR_CHECK</span><span class="p">(</span><span class="n">err_code</span><span class="p">);</span>
+            <span class="k">break</span><span class="p">;</span>
+
+        <span class="k">case</span> <span class="nl">BLE_GATTS_EVT_SYS_ATTR_MISSING</span><span class="p">:</span>
+            <span class="n">err_code</span> <span class="o">=</span> <span class="n">sd_ble_gatts_sys_attr_set</span><span class="p">(</span><span class="n">m_conn_handle</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span><span class="n">BLE_GATTS_SYS_ATTR_FLAG_USR_SRVCS</span><span class="p">);</span>
+            <span class="n">APP_ERROR_CHECK</span><span class="p">(</span><span class="n">err_code</span><span class="p">);</span>
+            <span class="k">break</span><span class="p">;</span>
+
+        <span class="k">case</span> <span class="nl">BLE_GAP_EVT_AUTH_STATUS</span><span class="p">:</span>
+            <span class="n">m_auth_status</span> <span class="o">=</span> <span class="n">p_ble_evt</span><span class="o">-&gt;</span><span class="n">evt</span><span class="p">.</span><span class="n">gap_evt</span><span class="p">.</span><span class="n">params</span><span class="p">.</span><span class="n">auth_status</span><span class="p">;</span>
+            <span class="k">break</span><span class="p">;</span>
+
+        <span class="k">case</span> <span class="nl">BLE_GAP_EVT_SEC_INFO_REQUEST</span><span class="p">:</span>
+						
+            <span class="k">if</span> <span class="p">(</span><span class="n">p_master_id</span><span class="p">.</span><span class="n">ediv</span> <span class="o">==</span> <span class="n">p_ble_evt</span><span class="o">-&gt;</span><span class="n">evt</span><span class="p">.</span><span class="n">gap_evt</span><span class="p">.</span><span class="n">params</span><span class="p">.</span><span class="n">sec_info_request</span><span class="p">.</span><span class="n">master_id</span><span class="p">.</span><span class="n">ediv</span><span class="p">)</span>
+            <span class="p">{</span>
+                <span class="n">err_code</span> <span class="o">=</span> <span class="n">sd_ble_gap_sec_info_reply</span><span class="p">(</span><span class="n">m_conn_handle</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">keys_exchanged</span><span class="p">.</span><span class="n">keys_central</span><span class="p">.</span><span class="n">p_enc_key</span><span class="o">-&gt;</span><span class="n">enc_info</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">keys_exchanged</span><span class="p">.</span><span class="n">keys_central</span><span class="p">.</span><span class="n">p_id_key</span><span class="o">-&gt;</span><span class="n">id_info</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
+                <span class="n">APP_ERROR_CHECK</span><span class="p">(</span><span class="n">err_code</span><span class="p">);</span>
+								<span class="n">p_master_id</span><span class="p">.</span><span class="n">ediv</span> <span class="o">=</span> <span class="n">p_ble_evt</span><span class="o">-&gt;</span><span class="n">evt</span><span class="p">.</span><span class="n">gap_evt</span><span class="p">.</span><span class="n">params</span><span class="p">.</span><span class="n">sec_info_request</span><span class="p">.</span><span class="n">master_id</span><span class="p">.</span><span class="n">ediv</span><span class="p">;</span>
+            <span class="p">}</span>
+            <span class="k">else</span>
+            <span class="p">{</span>
+                <span class="n">err_code</span> <span class="o">=</span> <span class="n">sd_ble_gap_sec_info_reply</span><span class="p">(</span><span class="n">m_conn_handle</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span><span class="nb">NULL</span><span class="p">);</span>
+                <span class="n">APP_ERROR_CHECK</span><span class="p">(</span><span class="n">err_code</span><span class="p">);</span>
+            <span class="p">}</span>
+            <span class="k">break</span><span class="p">;</span>
+
+        <span class="k">case</span> <span class="nl">BLE_GAP_EVT_TIMEOUT</span><span class="p">:</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">p_ble_evt</span><span class="o">-&gt;</span><span class="n">evt</span><span class="p">.</span><span class="n">gap_evt</span><span class="p">.</span><span class="n">params</span><span class="p">.</span><span class="n">timeout</span><span class="p">.</span><span class="n">src</span> <span class="o">==</span> <span class="n">BLE_GAP_TIMEOUT_SRC_ADVERTISING</span><span class="p">)</span>
+            <span class="p">{</span>
+                <span class="n">nrf_gpio_pin_clear</span><span class="p">(</span><span class="n">ADVERTISING_LED_PIN_NO</span><span class="p">);</span>
+
+                <span class="n">nrf_gpio_cfg_sense_input</span><span class="p">(</span><span class="n">WAKEUP_BUTTON_PIN</span><span class="p">,</span>
+                                         <span class="n">BUTTON_PULL</span><span class="p">,</span>
+                                         <span class="n">NRF_GPIO_PIN_SENSE_LOW</span><span class="p">);</span>
+                
+                <span class="n">err_code</span> <span class="o">=</span> <span class="n">sd_power_system_off</span><span class="p">();</span>
+                <span class="n">APP_ERROR_CHECK</span><span class="p">(</span><span class="n">err_code</span><span class="p">);</span>
+            <span class="p">}</span>
+            <span class="k">break</span><span class="p">;</span>
+
+        <span class="k">default</span><span class="o">:</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-19'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-19'>#</a>
+      </div>
+      <p>No implementation needed.</p>
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre>            <span class="k">break</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+
+<span class="cp"># ble_evt_dispatch</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-20'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-20'>#</a>
+      </div>
+      <p>ble_evt_dispatch BLE Stack 이벤트가 발생하면 실행되는 함수
+on_ble_evt, ble_conn_params_on_ble_evt, ble_lbs_on_ble_evt 를 콜해서
+응용, 연결, 서비스에서 BLE Stack에 반응하게 만들어 준다.</p>
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre><span class="k">static</span> <span class="kt">void</span> <span class="nf">ble_evt_dispatch</span><span class="p">(</span><span class="kt">ble_evt_t</span> <span class="o">*</span> <span class="n">p_ble_evt</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">on_ble_evt</span><span class="p">(</span><span class="n">p_ble_evt</span><span class="p">);</span>
+    <span class="n">ble_conn_params_on_ble_evt</span><span class="p">(</span><span class="n">p_ble_evt</span><span class="p">);</span>
+    <span class="n">ble_lbs_on_ble_evt</span><span class="p">(</span><span class="o">&amp;</span><span class="n">m_lbs</span><span class="p">,</span> <span class="n">p_ble_evt</span><span class="p">);</span>
+<span class="p">}</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-21'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-21'>#</a>
+      </div>
+      <p>시스템 이벤트가 발생하면 실행 (dispatch)</p>
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre><span class="k">static</span> <span class="kt">void</span> <span class="nf">sys_evt_dispatch</span><span class="p">(</span><span class="kt">uint32_t</span> <span class="n">sys_evt</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">pstorage_sys_event_handler</span><span class="p">(</span><span class="n">sys_evt</span><span class="p">);</span>
+<span class="p">}</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-22'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-22'>#</a>
+      </div>
+      <p>BLE 스택 초기화</p>
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre><span class="k">static</span> <span class="kt">void</span> <span class="nf">ble_stack_init</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="kt">uint32_t</span> <span class="n">err_code</span><span class="p">;</span>
+    
+    <span class="cm">/* Initialize the SoftDevice handler module. */</span>
+    <span class="n">SOFTDEVICE_HANDLER_INIT</span><span class="p">(</span><span class="n">NRF_CLOCK_LFCLKSRC_XTAL_20_PPM</span><span class="p">,</span> <span class="nb">false</span><span class="p">);</span>
+
+    <span class="cm">/* Enable BLE stack  */</span>
+    <span class="kt">ble_enable_params_t</span> <span class="n">ble_enable_params</span><span class="p">;</span>
+    <span class="n">memset</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ble_enable_params</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">ble_enable_params</span><span class="p">));</span>
+    <span class="n">ble_enable_params</span><span class="p">.</span><span class="n">gatts_enable_params</span><span class="p">.</span><span class="n">service_changed</span> <span class="o">=</span> <span class="n">IS_SRVC_CHANGED_CHARACT_PRESENT</span><span class="p">;</span>
+    <span class="n">err_code</span> <span class="o">=</span> <span class="n">sd_ble_enable</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ble_enable_params</span><span class="p">);</span>
+    <span class="n">APP_ERROR_CHECK</span><span class="p">(</span><span class="n">err_code</span><span class="p">);</span>
+
+    <span class="kt">ble_gap_addr_t</span> <span class="n">addr</span><span class="p">;</span>
+    
+    <span class="n">err_code</span> <span class="o">=</span> <span class="n">sd_ble_gap_address_get</span><span class="p">(</span><span class="o">&amp;</span><span class="n">addr</span><span class="p">);</span>
+    <span class="n">APP_ERROR_CHECK</span><span class="p">(</span><span class="n">err_code</span><span class="p">);</span>
+    <span class="n">sd_ble_gap_address_set</span><span class="p">(</span><span class="n">BLE_GAP_ADDR_CYCLE_MODE_NONE</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">addr</span><span class="p">);</span>
+    <span class="n">APP_ERROR_CHECK</span><span class="p">(</span><span class="n">err_code</span><span class="p">);</span>
+    <span class="cm">/* Subscribe for BLE events. */</span>
+    <span class="n">err_code</span> <span class="o">=</span> <span class="n">softdevice_ble_evt_handler_set</span><span class="p">(</span><span class="n">ble_evt_dispatch</span><span class="p">);</span>
+    <span class="n">APP_ERROR_CHECK</span><span class="p">(</span><span class="n">err_code</span><span class="p">);</span>
+    
+    <span class="cm">/* Register with the SoftDevice handler module for BLE events. */</span>
+    <span class="n">err_code</span> <span class="o">=</span> <span class="n">softdevice_sys_evt_handler_set</span><span class="p">(</span><span class="n">sys_evt_dispatch</span><span class="p">);</span>
+    <span class="n">APP_ERROR_CHECK</span><span class="p">(</span><span class="n">err_code</span><span class="p">);</span>
+<span class="p">}</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-23'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-23'>#</a>
+      </div>
+      <p>이벤트 스케줄러 실행 (확인 필요) 이걸 해서 뭘 실행하는거냐?</p>
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre><span class="k">static</span> <span class="kt">void</span> <span class="nf">scheduler_init</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">APP_SCHED_INIT</span><span class="p">(</span><span class="n">SCHED_MAX_EVENT_DATA_SIZE</span><span class="p">,</span> <span class="n">SCHED_QUEUE_SIZE</span><span class="p">);</span>
+<span class="p">}</span>
+
+
+<span class="k">static</span> <span class="kt">void</span> <span class="nf">button_event_handler</span><span class="p">(</span><span class="kt">uint8_t</span> <span class="n">pin_no</span><span class="p">,</span> <span class="kt">uint8_t</span> <span class="n">button_action</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="kt">uint32_t</span> <span class="n">err_code</span><span class="p">;</span>
+    
+    <span class="k">switch</span> <span class="p">(</span><span class="n">pin_no</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">case</span> <span class="nl">LEDBUTTON_BUTTON_PIN_NO</span><span class="p">:</span>
+            <span class="n">err_code</span> <span class="o">=</span> <span class="n">ble_lbs_on_button_change</span><span class="p">(</span><span class="o">&amp;</span><span class="n">m_lbs</span><span class="p">,</span> <span class="n">button_action</span><span class="p">);</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">err_code</span> <span class="o">!=</span> <span class="n">NRF_SUCCESS</span> <span class="o">&amp;&amp;</span>
+                <span class="n">err_code</span> <span class="o">!=</span> <span class="n">BLE_ERROR_INVALID_CONN_HANDLE</span> <span class="o">&amp;&amp;</span>
+                <span class="n">err_code</span> <span class="o">!=</span> <span class="n">NRF_ERROR_INVALID_STATE</span><span class="p">)</span>
+            <span class="p">{</span>
+                <span class="n">APP_ERROR_CHECK</span><span class="p">(</span><span class="n">err_code</span><span class="p">);</span>
+            <span class="p">}</span>
+            <span class="k">break</span><span class="p">;</span>
+
+        <span class="k">default</span><span class="o">:</span>
+            <span class="n">APP_ERROR_HANDLER</span><span class="p">(</span><span class="n">pin_no</span><span class="p">);</span>
+            <span class="k">break</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-24'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-24'>#</a>
+      </div>
+      <p>GPIOTE 주변장치 초기화</p>
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre><span class="k">static</span> <span class="kt">void</span> <span class="nf">gpiote_init</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">APP_GPIOTE_INIT</span><span class="p">(</span><span class="n">APP_GPIOTE_MAX_USERS</span><span class="p">);</span>
+<span class="p">}</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-25'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-25'>#</a>
+      </div>
+      <p>버튼 초기화. 기본 풀업.</p>
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre><span class="k">static</span> <span class="kt">void</span> <span class="nf">buttons_init</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="cm">/* Note: Array must be static because a pointer to it will be saved in the Button handler</span>
+<span class="cm">           module.</span>
+<span class="cm">           */</span>
+    <span class="k">static</span> <span class="kt">app_button_cfg_t</span> <span class="n">buttons</span><span class="p">[]</span> <span class="o">=</span>
+    <span class="p">{</span>
+        <span class="p">{</span><span class="n">WAKEUP_BUTTON_PIN</span><span class="p">,</span> <span class="nb">false</span><span class="p">,</span> <span class="n">BUTTON_PULL</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">},</span>
+        <span class="p">{</span><span class="n">LEDBUTTON_BUTTON_PIN_NO</span><span class="p">,</span> <span class="nb">false</span><span class="p">,</span> <span class="n">BUTTON_PULL</span><span class="p">,</span> <span class="n">button_event_handler</span><span class="p">}</span>
+    <span class="p">};</span>
+
+    <span class="n">app_button_init</span><span class="p">(</span><span class="n">buttons</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">buttons</span><span class="p">)</span> <span class="o">/</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">buttons</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">BUTTON_DETECTION_DELAY</span><span class="p">);</span>
+<span class="p">}</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-26'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-26'>#</a>
+      </div>
+      <p>power_manage: 슬립 슬립</p>
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre><span class="k">static</span> <span class="kt">void</span> <span class="nf">power_manage</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="kt">uint32_t</span> <span class="n">err_code</span> <span class="o">=</span> <span class="n">sd_app_evt_wait</span><span class="p">();</span>
+    <span class="n">APP_ERROR_CHECK</span><span class="p">(</span><span class="n">err_code</span><span class="p">);</span>
+<span class="p">}</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-27'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-27'>#</a>
+      </div>
+      <h1>main 함수</h1>
+<ul>
+<li>주변장치초기화</li>
+<li>BLE 스택 초기화</li>
+<li>GAP 초기화</li>
+<li>서비스 초기화</li>
+<li>BLE Advertising 초기화</li>
+<li>BLE Connection 초기화</li>
+<li>BLE 보안 초기화</li>
+<li>타이머 시작</li>
+<li>BLE Advertising 시작</li>
+</ul>
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre><span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">leds_init</span><span class="p">();</span>
+    <span class="n">timers_init</span><span class="p">();</span>
+    <span class="n">gpiote_init</span><span class="p">();</span>
+    <span class="n">buttons_init</span><span class="p">();</span>
+    <span class="n">ble_stack_init</span><span class="p">();</span>
+    <span class="n">scheduler_init</span><span class="p">();</span>    
+    <span class="n">gap_params_init</span><span class="p">();</span>
+    <span class="n">services_init</span><span class="p">();</span>
+    <span class="n">advertising_init</span><span class="p">();</span>
+    <span class="n">conn_params_init</span><span class="p">();</span>
+    <span class="n">sec_params_init</span><span class="p">();</span>
+
+    <span class="n">timers_start</span><span class="p">();</span>
+    <span class="n">advertising_start</span><span class="p">();</span>
+
+    <span class="k">for</span> <span class="p">(;;)</span>
+    <span class="p">{</span></pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+  <div class='section' id='section-28'>
+    <div class='docs'>
+      <div class='octowrap'>
+        <a class='octothorpe' href='#section-28'>#</a>
+      </div>
+      <p>메인루프에서는 케쥴러에 일이 있으면 실행하고, 슬립모드에 들어간다. </p>
+    </div>
+    <div class='code'>
+      <div class="highlight"><pre>        <span class="n">app_sched_execute</span><span class="p">();</span>
+        <span class="n">power_manage</span><span class="p">();</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+</pre></div>
+    </div>
+  </div>
+  <div class='clearall'></div>
+</div>
+</body>
